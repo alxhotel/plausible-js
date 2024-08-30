@@ -1,0 +1,37 @@
+{
+  "name": "plausible-js",
+  "version": "2.0.1",
+  "description": "TypeScript library for Plausible Analytics API",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/types/index.d.ts",
+  "files": ["dist"],
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "require": "./dist/cjs/index.js",
+      "import": "./dist/esm/index.js"
+    }
+  },
+  "scripts": {
+    "start": "tsc --watch",
+    "build": "tsc && tsc-alias -p tsconfig.json",
+    "postbuild": "esm2cjs --in dist/esm --out dist/cjs -l error"
+  },
+  "devDependencies": {
+    "@alcalzone/esm2cjs": "^1.1.2",
+    "tsc-alias": "^1.8.10",
+    "typescript": "^5.5.4"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alxhotel/plausible-js.git"
+  },
+  "author": "Alex",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/alxhotel/plausible-js/issues"
+  },
+  "homepage": "https://github.com/alxhotel/plausible-js#readme"
+}
