@@ -3,6 +3,7 @@ import {
   Breakdowns,
   Datapoints,
   DateRange,
+  Filters,
   Interval,
   Metric,
   Period,
@@ -69,37 +70,37 @@ export default class Plausible {
    * corresponds to the top row of stats that include Unique Visitors, Pageviews, Bounce rate and Visit duration.
    * You can retrieve any number and combination of these metrics in one request.
    */
-  public async getAggregate<Compare extends boolean>(opts: {
+  public async getAggregate<Compare extends boolean, M extends Metric>(opts: {
     period?: Omit<Period, 'custom'>
-    metrics?: Array<Metric>
+    metrics?: Array<M>
     compare?: Compare | null
-    filters?: string | null
+    filters?: Filters | null
   } | {
     period: 'custom'
-    metrics?: Array<Metric>
+    metrics?: Array<M>
     compare?: Compare | null
-    filters?: string | null
+    filters?: Filters | null
     date: DateRange
-  }): Promise<Aggregated<Compare>> {
+  }): Promise<
+    Compare extends true
+      ? { [K in M]: Aggregated<true> }
+      : { [K in M]: Aggregated<false> }
+  > {
     const params = new URLSearchParams();
 
     if (opts.period) params.append(`period`, opts.period as string);
     if (opts.metrics?.length > 0) params.append(`metrics`, opts.metrics.join(','));
     if (opts.compare) params.append(`compare`, "previous_period");
-    if (opts.filters) params.append("filters", opts.filters);
+    if (opts.filters) {
+      params.append(`filters`, getFilters(opts.filters));
+    }
+
     if ('date' in opts && opts.date) {
-      const fromDate = opts.date.from.toISOString().split('T')[0]
-      const toDate = opts.date.to.toISOString().split('T')[0]
-      params.append("date", `${fromDate},${toDate}`);
+      params.append("date", getDate(opts.date))
     }
 
     const response = await this.getAbstract(`api/v1/stats/aggregate`, params);
-
-    if (response.results.visitors) return response.results.visitors;
-    if (response.results.pageviews) return response.results.pageviews;
-    if (response.results.bounce_rate) return response.results.bounce_rate;
-
-    return response.results.visit_duration;
+    return response.results;
   }
 
   /**
@@ -108,12 +109,12 @@ export default class Plausible {
    */
   public async getTimeseries<M extends Metric>(opts: {
     period?: Omit<Period, 'custom'>
-    filters?: string | null
+    filters?: Filters | null
     metrics?: Array<M>
     interval?: Interval | null
   } | {
     period: 'custom'
-    filters?: string | null
+    filters?: Filters | null
     metrics?: Array<M>
     interval?: Interval | null
     date: DateRange
@@ -122,13 +123,13 @@ export default class Plausible {
 
     params.append(`period`, opts.period as string);
 
-    if (opts.filters) params.append(`filters`, opts.filters);
+    if (opts.filters) {
+      params.append(`filters`, getFilters(opts.filters));
+    }
     if (opts.metrics?.length > 0) params.append(`metrics`, opts.metrics.join(','));
     if (opts.interval) params.append("interval", opts.interval);
     if ('date' in opts && opts.date) {
-      const fromDate = opts.date.from.toISOString().split('T')[0]
-      const toDate = opts.date.to.toISOString().split('T')[0]
-      params.append("date", `${fromDate},${toDate}`);
+      params.append("date", getDate(opts.date))
     }
 
     const response = await this.getAbstract(`api/v1/stats/timeseries`, params);
@@ -152,14 +153,14 @@ export default class Plausible {
     metrics?: Array<M>,
     limit?: number | null,
     page?: number | null,
-    filters?: string | null,
+    filters?: Filters | null,
   } | {
     property: P,
     period: 'custom',
     metrics?: Array<M>,
     limit?: number | null,
     page?: number | null,
-    filters?: string | null,
+    filters?: Filters | null,
     date: DateRange
   }): Promise<Breakdowns<P, M>> {
     const params = new URLSearchParams();
@@ -170,14 +171,40 @@ export default class Plausible {
     if (opts.metrics?.length > 0) params.append(`metrics`, opts.metrics.join(','));
     if (opts.limit) params.append("limit", opts.limit.toString());
     if (opts.page) params.append("page", opts.page.toString());
-    if (opts.filters) params.append(`filters`, opts.filters);
+    if (opts.filters) {
+      params.append(`filters`, getFilters(opts.filters));
+    }
     if ('date' in opts && opts.date) {
-      const fromDate = opts.date.from.toISOString().split('T')[0]
-      const toDate = opts.date.to.toISOString().split('T')[0]
-      params.append("date", `${fromDate},${toDate}`);
+      params.append("date", getDate(opts.date));
     }
 
     const response = await this.getAbstract(`api/v1/stats/breakdown`, params);
     return response.results;
   }
+}
+
+function getDate(date: DateRange): string {
+  const fromDate = date.from.toISOString().split('T')[0]
+  const toDate = date.to.toISOString().split('T')[0]
+  return `${fromDate},${toDate}`;
+}
+
+function getFilters(filters: Filters): string {
+  return filters.children.map(filter => {
+    // Is FilterNode
+    if ('property' in filter) {
+      return `${filter.property}${filter.operator}${
+        (typeof filter.value === 'object' && 'operator' in filter.value)
+          ? filter.value.values.join(filter.value.operator)
+          : filter.value
+      }`;
+    }
+
+    // Is Filters
+    if (filter.children.length > 1) {
+      return `(${getFilters(filter)})`;
+    } else {
+      return getFilters(filter);
+    }
+  }).join(filters.operator);
 }

@@ -12,6 +12,24 @@ const p = new Plausible(apiKey, siteId)
 		date: {
 			from: new Date('1970-01-01'),
 			to: new Date('2050-01-01')
+		},
+		filters: {
+			operator: ';',
+			children: [
+				{
+					property: 'event:page',
+					operator: '==',
+					value: {
+						operator: '|',
+						values: ['/dashboard*', '/love*']
+					}
+				},
+				{
+					property: 'event:hostname',
+					operator: '==',
+					value: 'socket.dev'
+				}
+			]
 		}
 	})
 

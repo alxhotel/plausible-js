@@ -55,7 +55,7 @@ export type Aggregated<Compare extends boolean> = Compare extends true ? {
 
 export type Datapoints<M extends string> = Array<
   & {
-    [key in M]: string;
+    [key in M]: number;
   }
   & {
     date: string;
@@ -73,3 +73,21 @@ type Breakdown<T extends string, M extends Metric> =
 export type Breakdowns<P extends Property, M extends Metric> = Array<
   P extends `${string}:${infer Key}` ? Breakdown<Key, M> : never
 >;
+
+export type FilterNode = {
+  property: Property
+  operator: '=='
+  value: {
+    operator: '|'
+    values: Array<string>
+  } | string
+} | {
+  property: Property
+  operator: '!='
+  value: string
+}
+
+export type Filters = {
+  operator: ';' | '|'
+  children: Array<Filters | FilterNode>
+}
